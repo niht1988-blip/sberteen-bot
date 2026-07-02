@@ -62,6 +62,17 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (event_id) REFERENCES events(id)
             );
+
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                event_id INTEGER NOT NULL,
+                notify_type TEXT NOT NULL,
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, event_id, notify_type),
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (event_id) REFERENCES events(id)
+            );
         """)
         await self.db.commit()
 
@@ -258,3 +269,26 @@ class Database:
         ) as cur:
             row = await cur.fetchone()
             return dict(row) if row else None
+
+    # ── Notifications ──
+
+    async def is_notification_sent(self, user_id: int, event_id: int, notify_type: str) -> bool:
+        async with self.db.execute(
+            "SELECT 1 FROM notifications WHERE user_id = ? AND event_id = ? AND notify_type = ?",
+            (user_id, event_id, notify_type),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+    async def mark_notification_sent(self, user_id: int, event_id: int, notify_type: str):
+        await self.db.execute(
+            "INSERT OR IGNORE INTO notifications (user_id, event_id, notify_type) VALUES (?, ?, ?)",
+            (user_id, event_id, notify_type),
+        )
+        await self.db.commit()
+
+    async def get_events_at_datetime(self, target_date: str, target_time: str) -> list[dict]:
+        async with self.db.execute(
+            "SELECT * FROM events WHERE date = ? AND time = ?",
+            (target_date, target_time),
+        ) as cur:
+            return [dict(row) for row in await cur.fetchall()]

@@ -6,6 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN
 from database import Database
 from middlewares import DatabaseMiddleware, RoleMiddleware
+from scheduler import notification_loop
 from handlers import (
     start_router,
     schedule_router,
@@ -43,6 +44,10 @@ async def main():
     dp.include_router(admin_router)
 
     logger.info("Bot starting...")
+
+    # Запускаем планировщик уведомлений параллельно с polling
+    asyncio.create_task(notification_loop(bot, db))
+
     try:
         await dp.start_polling(bot)
     finally:
